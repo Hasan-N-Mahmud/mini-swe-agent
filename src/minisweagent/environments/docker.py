@@ -131,9 +131,6 @@ class DockerEnvironment:
         
         full_id, name = result_info.stdout.strip().split()
         name = name.lstrip('/')
-
-        # 3. Set the class attribute, just as _start_container does.
-        # This is the critical step.
         self.container_id = full_id
         
         self.logger.info(f"Successfully attached to running container {name} (ID: {self.container_id})")
@@ -170,4 +167,5 @@ class DockerEnvironment:
 
     def __del__(self):
         """Cleanup container when object is destroyed."""
-        self.cleanup()
+        if self.config.container_id is None:
+            self.cleanup()
