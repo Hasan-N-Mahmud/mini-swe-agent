@@ -77,7 +77,7 @@ def get_swebench_docker_image_name(instance: dict) -> str:
     return image_name
 
 
-def get_sb_environment(config: dict, instance: dict) -> Environment:
+def get_sb_environment(config: dict, instance: dict, container_id: str | None = None) -> Environment:
     env_config = config.setdefault("environment", {})
     env_config["environment_class"] = env_config.get("environment_class", "docker")
     image_name = get_swebench_docker_image_name(instance)
@@ -85,7 +85,8 @@ def get_sb_environment(config: dict, instance: dict) -> Environment:
         env_config["image"] = image_name
     elif env_config["environment_class"] == "singularity":
         env_config["image"] = "docker://" + image_name
-    env = get_environment(env_config)
+    env = get_environment(env_config, container_id=container_id)
+    print("Environment Config:", env)
     if startup_command := config.get("run", {}).get("env_startup_command"):
         startup_command = Template(startup_command, undefined=StrictUndefined).render(**instance)
         out = env.execute(startup_command)
@@ -124,6 +125,7 @@ def process_instance(
     output_dir: Path,
     config: dict,
     progress_manager: RunBatchProgressManager,
+    container_id: str | None = None,
 ) -> None:
     """Process a single SWEBench instance."""
     instance_id = instance["instance_id"]
@@ -141,7 +143,7 @@ def process_instance(
     extra_info = None
 
     try:
-        env = get_sb_environment(config, instance)
+        env = get_sb_environment(config, instance, container_id=container_id)
         agent = ProgressTrackingAgent(
             model,
             env,
@@ -203,6 +205,7 @@ def main(
     redo_existing: bool = typer.Option(False, "--redo-existing", help="Redo existing instances", rich_help_panel="Data selection"),
     config_spec: Path = typer.Option( builtin_config_dir / "extra" / "swebench.yaml", "-c", "--config", help="Path to a config file", rich_help_panel="Basic"),
     environment_class: str | None = typer.Option( None, "--environment-class", help="Environment type to use. Recommended are docker or singularity", rich_help_panel="Advanced"),
+    container_id: str | None = typer.Option( None, "--container-id", help="Container ID to use", rich_help_panel="Advanced"),
 ) -> None:
     # fmt: on
     output_path = Path(output)
@@ -213,6 +216,7 @@ def main(
     dataset_path = DATASET_MAPPING.get(subset, subset)
     logger.info(f"Loading dataset {dataset_path}, split {split}...")
     instances = list(load_dataset(dataset_path, split=split))
+    print("Printing container ID and name:",container_id)
 
     instances = filter_instances(instances, filter_spec=filter_spec, slice_spec=slice_spec, shuffle=shuffle)
     if not redo_existing and (output_path / "preds.json").exists():
@@ -247,7 +251,7 @@ def main(
     with Live(progress_manager.render_group, refresh_per_second=4):
         with concurrent.futures.ThreadPoolExecutor(max_workers=workers) as executor:
             futures = {
-                executor.submit(process_instance, instance, output_path, config, progress_manager): instance[
+                executor.submit(process_instance, instance, output_path, config, progress_manager, container_id): instance[
                     "instance_id"
                 ]
                 for instance in instances

@@ -25,7 +25,9 @@ def get_environment_class(spec: str) -> type[Environment]:
         raise ValueError(msg)
 
 
-def get_environment(config: dict, *, default_type: str = "") -> Environment:
+def get_environment(config: dict, *, default_type: str = "", container_id: str | None = None) -> Environment:
+    if container_id is not None:
+        config["container_id"] = container_id
     config = copy.deepcopy(config)
     environment_class = config.pop("environment_class", default_type)
     return get_environment_class(environment_class)(**config)

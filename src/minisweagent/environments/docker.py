@@ -31,6 +31,8 @@ class DockerEnvironmentConfig:
     """Max duration to keep container running. Uses the same format as the sleep command."""
     pull_timeout: int = 120
     """Timeout in seconds for pulling images."""
+    container_id: str | None = None
+    """Optional container ID to use instead of starting a new container."""
 
 
 class DockerEnvironment:
@@ -41,7 +43,11 @@ class DockerEnvironment:
         self.logger = logger or logging.getLogger("minisweagent.environment")
         self.container_id: str | None = None
         self.config = config_class(**kwargs)
-        self._start_container()
+        print("Docker Environment Config:", self.config)
+        if self.config.container_id is not None:
+            self._attach_to_container(self.config.container_id)
+        else:
+            self._start_container()
 
     def get_template_vars(self) -> dict[str, Any]:
         return asdict(self.config)
@@ -72,6 +78,65 @@ class DockerEnvironment:
         )
         self.logger.info(f"Started container {container_name} with ID {result.stdout.strip()}")
         self.container_id = result.stdout.strip()
+
+    def _attach_to_container(self, container_id: str):
+        """
+        Attach to an existing, already-running Docker container
+        by its ID or name.
+        """
+        cmd_check_running = [
+            self.config.executable,
+            "inspect",
+            "-f",
+            "{{.State.Running}}",
+            container_id
+        ]
+        
+        self.logger.debug(f"Checking status of container {container_id}")
+        
+        try:
+            result_check = subprocess.run(
+                cmd_check_running,
+                capture_output=True,
+                text=True,
+                check=True,
+                timeout=10
+            )
+        except subprocess.CalledProcessError as e:
+            self.logger.error(f"Failed to inspect container {container_id}. Does it exist? Error: {e.stderr}")
+            raise RuntimeError(f"Container '{container_id}' not found or docker error.") from e
+        except subprocess.TimeoutExpired:
+            self.logger.error(f"Timeout while inspecting container {container_id}.")
+            raise RuntimeError(f"Timeout checking container {container_id}.")
+
+        if result_check.stdout.strip() != "true":
+            self.logger.error(f"Container {container_id} is not in a 'running' state.")
+            raise RuntimeError(f"Container {container_id} is not 'running'. Please start it first.")
+
+        cmd_get_info = [
+            self.config.executable,
+            "inspect",
+            "-f",
+            "{{.Id}} {{.Name}}",
+            container_id
+        ]
+        
+        result_info = subprocess.run(
+            cmd_get_info,
+            capture_output=True,
+            text=True,
+            check=True,
+            timeout=10
+        )
+        
+        full_id, name = result_info.stdout.strip().split()
+        name = name.lstrip('/')
+
+        # 3. Set the class attribute, just as _start_container does.
+        # This is the critical step.
+        self.container_id = full_id
+        
+        self.logger.info(f"Successfully attached to running container {name} (ID: {self.container_id})")
 
     def execute(self, command: str, cwd: str = "", *, timeout: int | None = None) -> dict[str, Any]:
         """Execute a command in the Docker container and return the result as a dict."""
