@@ -86,7 +86,6 @@ def get_sb_environment(config: dict, instance: dict, container_id: str | None = 
     elif env_config["environment_class"] == "singularity":
         env_config["image"] = "docker://" + image_name
     env = get_environment(env_config, container_id=container_id)
-    print("Environment Config:", env)
     if startup_command := config.get("run", {}).get("env_startup_command"):
         startup_command = Template(startup_command, undefined=StrictUndefined).render(**instance)
         out = env.execute(startup_command)
@@ -216,7 +215,6 @@ def main(
     dataset_path = DATASET_MAPPING.get(subset, subset)
     logger.info(f"Loading dataset {dataset_path}, split {split}...")
     instances = list(load_dataset(dataset_path, split=split))
-    print("Printing container ID and name:",container_id)
 
     instances = filter_instances(instances, filter_spec=filter_spec, slice_spec=slice_spec, shuffle=shuffle)
     if not redo_existing and (output_path / "preds.json").exists():
