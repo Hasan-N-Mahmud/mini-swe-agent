@@ -4,6 +4,8 @@ from pathlib import Path
 import yaml
 from jinja2 import StrictUndefined, Template
 
+from minisweagent.agents.default import AgentConfig
+
 
 @dataclass
 class MockOutput:
@@ -11,17 +13,25 @@ class MockOutput:
 
     returncode: int
     output: str
+    exception_info: str = ""
 
 
-def test_action_observation_template_short_output():
+def test_observation_template_short_output():
     """Test that short output (< 10000 chars) is displayed in full"""
     # Load the swebench config
-    config_path = Path(__file__).parent.parent.parent / "src" / "minisweagent" / "config" / "extra" / "swebench.yaml"
+    config_path = (
+        Path(__file__).parent.parent.parent
+        / "src"
+        / "minisweagent"
+        / "config"
+        / "benchmarks"
+        / "swebench_backticks.yaml"
+    )
     with open(config_path) as f:
         config = yaml.safe_load(f)
 
-    # Extract the template
-    template_str = config["agent"]["action_observation_template"]
+    # Extract the template (now in model section)
+    template_str = config["model"]["observation_template"]
     template = Template(template_str, undefined=StrictUndefined)
 
     # Create mock output with short content
@@ -44,15 +54,22 @@ def test_action_observation_template_short_output():
     assert "<warning>" not in result
 
 
-def test_action_observation_template_long_output():
+def test_observation_template_long_output():
     """Test that long output (> 10000 chars) is truncated with head/tail format"""
     # Load the swebench config
-    config_path = Path(__file__).parent.parent.parent / "src" / "minisweagent" / "config" / "extra" / "swebench.yaml"
+    config_path = (
+        Path(__file__).parent.parent.parent
+        / "src"
+        / "minisweagent"
+        / "config"
+        / "benchmarks"
+        / "swebench_backticks.yaml"
+    )
     with open(config_path) as f:
         config = yaml.safe_load(f)
 
-    # Extract the template
-    template_str = config["agent"]["action_observation_template"]
+    # Extract the template (now in model section)
+    template_str = config["model"]["observation_template"]
     template = Template(template_str, undefined=StrictUndefined)
 
     # Create mock output with long content
@@ -89,15 +106,22 @@ def test_action_observation_template_long_output():
     assert "BBBB" in tail_content  # Should contain end of output
 
 
-def test_action_observation_template_edge_case_exactly_10000_chars():
+def test_observation_template_edge_case_exactly_10000_chars():
     """Test the boundary case where output is around 10000 characters"""
     # Load the swebench config
-    config_path = Path(__file__).parent.parent.parent / "src" / "minisweagent" / "config" / "extra" / "swebench.yaml"
+    config_path = (
+        Path(__file__).parent.parent.parent
+        / "src"
+        / "minisweagent"
+        / "config"
+        / "benchmarks"
+        / "swebench_backticks.yaml"
+    )
     with open(config_path) as f:
         config = yaml.safe_load(f)
 
-    # Extract the template
-    template_str = config["agent"]["action_observation_template"]
+    # Extract the template (now in model section)
+    template_str = config["model"]["observation_template"]
     template = Template(template_str, undefined=StrictUndefined)
 
     # Use a large amount of data that will definitely exceed 10000 chars when rendered
@@ -115,15 +139,22 @@ def test_action_observation_template_edge_case_exactly_10000_chars():
     assert "XXXX" in result
 
 
-def test_action_observation_template_just_under_10000_chars():
+def test_observation_template_just_under_10000_chars():
     """Test that smaller output shows full output without truncation"""
     # Load the swebench config
-    config_path = Path(__file__).parent.parent.parent / "src" / "minisweagent" / "config" / "extra" / "swebench.yaml"
+    config_path = (
+        Path(__file__).parent.parent.parent
+        / "src"
+        / "minisweagent"
+        / "config"
+        / "benchmarks"
+        / "swebench_backticks.yaml"
+    )
     with open(config_path) as f:
         config = yaml.safe_load(f)
 
-    # Extract the template
-    template_str = config["agent"]["action_observation_template"]
+    # Extract the template (now in model section)
+    template_str = config["model"]["observation_template"]
     template = Template(template_str, undefined=StrictUndefined)
 
     # Use a reasonably sized output that should be well under 10000 chars when rendered
@@ -138,3 +169,13 @@ def test_action_observation_template_just_under_10000_chars():
     assert "<output_tail>" not in result
     assert "<warning>" not in result
     assert "Y" * 8000 in result
+
+
+def test_agent_config_requires_templates():
+    """Test that AgentConfig now requires all template fields (no defaults in code)"""
+    import pytest
+    from pydantic import ValidationError
+
+    # AgentConfig should require all template fields now (Pydantic raises ValidationError)
+    with pytest.raises(ValidationError, match="validation error"):
+        AgentConfig()

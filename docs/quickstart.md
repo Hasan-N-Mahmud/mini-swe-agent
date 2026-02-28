@@ -13,20 +13,19 @@
         And try our command line interface
 
         ```bash
-        mini  # simple UI
-        mini -v  # visual UI
+        mini  # CLI
         mini-extra  # extra utilities
         ```
 
     === "uv (isolated)"
 
-        Use `uv`/`uvx` ([installation](https://docs.astral.sh/uv/getting-started/installation/)) to install & run the `mini` agent in an isolated environment.
+        Use `uv`/`uvx` ([installation](https://docs.astral.sh/uv/getting-started/installation/)) to directly run the `mini` CLI.
+        Use this if you're only interested in the CLI but don't need python bindings (`mini` will be installed in an anonymous virtual environment).
 
         Quickly install + run:
 
         ```bash
-        uvx mini-swe-agent  # simple UI
-        uvx mini-swe-agent -v  # visual UI
+        uvx mini-swe-agent  # CLI
         uvx --from mini-swe-agent mini-extra  # extra utilities
         ```
 
@@ -35,22 +34,20 @@
         ```bash
         uv tool install mini-swe-agent
         # then
-        mini  # simple UI
-        mini -v  # visual UI
+        mini  # CLI
         mini-extra  # extra utilities
         ```
 
     === "pipx (isolated)"
 
-        Use pipx ([installation](https://pipx.pypa.io/stable/installation/)) to install & run `mini` in an isolated environment.
+        Use pipx ([installation](https://pipx.pypa.io/stable/installation/)) to directly run the `mini` CLI.
+        Use this if you're only interested in the CLI but don't need python bindings (`mini` will be installed in an anonymous virtual environment).
 
         Quick install + run:
 
         ```bash
-        # Simple UI
+        # CLI
         pipx run mini-swe-agent
-        # Textual UI
-        pipx run mini-swe-agent -v
         # Extra utilities
         pipx run --spec mini-swe-agent mini-extra
         ```
@@ -60,8 +57,7 @@
         ```bash
         pipx install mini-swe-agent
         # then
-        mini  # simple UI
-        mini -v  # visual UI
+        mini  # CLI
         mini-extra  # extra utilities
         ```
 
@@ -80,8 +76,7 @@
         Then run:
 
         ```bash
-        mini  # simple UI
-        mini -v  # visual UI
+        mini  # CLI
         mini-extra  # extra utilities
         ```
 
@@ -109,6 +104,10 @@
 !!! note "Changelog"
 
     Please see the [github release notes](https://github.com/SWE-agent/mini-swe-agent/releases) for recent changes.
+
+!!! info "Upgrading to v2?"
+
+    Check out our [v2 migration guide](advanced/v2_migration.md) for all the changes and how to update your code.
 
 !!! example "Example Prompts"
 

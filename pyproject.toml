@@ -34,6 +34,7 @@ dependencies = [
     "pyyaml",
     "requests",
     "jinja2",
+    "pydantic >= 2.0",  # v2 required for safe mutable default arguments
     "litellm >= 1.75.5",  # want to have gpt-5 support
     "tenacity",
     "rich",
@@ -42,6 +43,7 @@ dependencies = [
     "platformdirs",
     "textual",
     "prompt_toolkit",
+    "datasets",
     "openai != 1.100.0,!=1.100.1",  # https://github.com/SWE-agent/mini-swe-agent/issues/446
 ]
 
@@ -49,10 +51,17 @@ dependencies = [
 full = [
     "mini-swe-agent[dev]",
     "swe-rex>=1.4.0",
+    "mini-swe-agent[modal]",
+    "mini-swe-agent[contree]",
+
+]
+
+modal = [
+    "modal",
+    "boto3",
 ]
 
 dev = [
-    "datasets",
     "pytest",
     "pytest-cov",
     "pytest-asyncio",
@@ -65,6 +74,12 @@ dev = [
     "mkdocs-material",
     "mkdocs-glightbox",
     "mkdocs-redirects",
+    "portkey-ai",
+    "swe-rex",
+]
+
+contree = [
+    "contree-sdk>=0.1.0",
 ]
 
 [project.urls]
@@ -75,8 +90,8 @@ Repository = "https://github.com/SWE-agent/mini-SWE-agent"
 [project.scripts]
 mini = "minisweagent.run.mini:app"
 mini-swe-agent = "minisweagent.run.mini:app"
-mini-extra = "minisweagent.run.mini_extra:main"
-mini-e= "minisweagent.run.mini_extra:main"
+mini-extra = "minisweagent.run.utilities.mini_extra:main"
+mini-e= "minisweagent.run.utilities.mini_extra:main"
 
 [tool.setuptools]
 include-package-data = true
@@ -261,4 +276,12 @@ asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
 markers = [
     "slow: marks tests as slow (deselect with '-k \"not slow\"')",
+]
+
+[dependency-groups]
+dev = [
+    "datasets>=4.5.0",
+    "pytest>=9.0.2",
+    "pytest-asyncio>=1.3.0",
+    "pytest-cov>=7.0.0",
 ]

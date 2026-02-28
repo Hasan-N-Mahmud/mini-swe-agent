@@ -34,7 +34,7 @@
         ```bash
         mini-extra swebench --help
         # or
-        python src/minisweagent/run/extra/swebench.py --help
+        python src/minisweagent/run/benchmarks/swebench.py --help
         # Example:
         mini-extra swebench \
             --model anthropic/claude-sonnet-4-5-20250929 \
@@ -65,12 +65,12 @@
 
     === "Single instance (for debugging)"
 
-        Single instance mode runs on a single task instance with interactivity (useful for debugging).
+        Single instance mode runs on a single task instance with interactivity. This is meant for debugging, and so unlike the batch mode command above, this will not produce a preds.json file.
 
         ```bash
         mini-extra swebench-single --help
         # or
-        python src/minisweagent/run/extra/swebench_single.py --help
+        python src/minisweagent/run/benchmarks/swebench_single.py --help
         # Example:
         mini-extra swebench-single \
             --subset verified \
@@ -129,7 +129,7 @@
         ```bash
         python -m swebench.harness.run_evaluation \
             --dataset_name princeton-nlp/SWE-bench_Verified \
-            --predictions_path all_preds.jsonl \
+            --predictions_path preds.jsonl \
             --max_workers <num_workers> \
             --run_id <run_id>
         ```
@@ -200,28 +200,28 @@ See [this guide](../advanced/environments.md) for more details.
 
 ??? note "Default config"
 
-    - [Read on GitHub](https://github.com/swe-agent/mini-swe-agent/blob/main/src/minisweagent/config/extra/swebench.yaml)
+    - [Read on GitHub](https://github.com/swe-agent/mini-swe-agent/blob/main/src/minisweagent/config/benchmarks/swebench.yaml)
 
     ```yaml
-    --8<-- "src/minisweagent/config/extra/swebench.yaml"
+    --8<-- "src/minisweagent/config/benchmarks/swebench.yaml"
     ```
 
 ??? note "`swebench.py` run script"
 
-    - [Read on GitHub](https://github.com/swe-agent/mini-swe-agent/blob/main/src/minisweagent/run/extra/swebench.py)
+    - [Read on GitHub](https://github.com/swe-agent/mini-swe-agent/blob/main/src/minisweagent/run/benchmarks/swebench.py)
     - [API reference](../reference/run/swebench.md)
 
     ```python
-    --8<-- "src/minisweagent/run/extra/swebench.py"
+    --8<-- "src/minisweagent/run/benchmarks/swebench.py"
     ```
 
 ??? note "`swebench_single.py` run script"
 
-    - [Read on GitHub](https://github.com/swe-agent/mini-swe-agent/blob/main/src/minisweagent/run/extra/swebench_single.py)
+    - [Read on GitHub](https://github.com/swe-agent/mini-swe-agent/blob/main/src/minisweagent/run/benchmarks/swebench_single.py)
     - [API reference](../reference/run/swebench_single.md)
 
     ```python
-    --8<-- "src/minisweagent/run/extra/swebench_single.py"
+    --8<-- "src/minisweagent/run/benchmarks/swebench_single.py"
     ```
 
 {% include-markdown "../_footer.md" %}

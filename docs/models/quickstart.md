@@ -14,7 +14,6 @@ There are several ways to set your API keys:
 * **Recommended**: Run our setup script: `mini-extra config setup`. This should also run automatically the first time you run `mini`.
 * Use `mini-extra config set ANTHROPIC_API_KEY <your-api-key>` to put the key in the `mini` [config file](../advanced/global_configuration.md).
 * Export your key as an environment variable: `export ANTHROPIC_API_KEY=<your-api-key>` (this is not persistent if you restart your shell, unless you add it to your shell config, like `~/.bashrc` or `~/.zshrc`).
-* If you only use a single model, you can also set `MSWEA_MODEL_API_KEY` (as environment variable or in the config file). This takes precedence over all other keys.
 * If you run several agents in parallel, see our note about rotating anthropic keys [here](../advanced/global_configuration.md).
 
 ??? note "All the API key names"
@@ -117,7 +116,7 @@ To find the corresponding API key, check the previous section.
 To configure reasoning efforts or similar settings, you need to edit the [agent config file](../advanced/yaml_configuration.md).
 In newer versions, the location of the config file is printed when you run `mini` ("agent config" in the output).
 
-Here's a few examples:
+Here's a few general examples:
 
 === "Temperature"
 
@@ -125,20 +124,20 @@ Here's a few examples:
 
     ```yaml
     model:
-    model_name: "anthropic/claude-sonnet-4-5-20250929"
-      model_kwargs:
-        temperature: 0.0
+      model_name: "anthropic/claude-sonnet-4-5-20250929"
+        model_kwargs:
+          temperature: 0.0
     ```
 
     Note that temperature isn't supported by all models.
 
-=== "GPT-5 reasoning effort"
+=== "GPT-5 reasoning effort (Chat Completions API)"
 
     `litellm` allows to set model-specific settings with the `model_kwargs` key:
 
     ```yaml
     model:
-      model_name: "gpt-5-mini"
+      model_name: "openai/gpt-5-mini"
       model_kwargs:
         drop_params: true
         reasoning_effort: "high"
@@ -146,6 +145,20 @@ Here's a few examples:
     ```
 
     Here, `drop_params` is used to drop any parameters that are not supported by the model.
+
+=== "GPT-5 with Responses API"
+
+    For OpenAI models that support the Responses API, you can use the `litellm_response_toolcall` model class:
+
+    ```yaml
+    model:
+      model_class: "litellm_response_toolcall"
+      model_name: "openai/gpt-5-mini"
+      model_kwargs:
+        drop_params: true
+        reasoning:
+          effort: "high"
+    ```
 
 === "OpenRouter"
 
@@ -181,6 +194,65 @@ Here's a few examples:
     See [this guide](local_models.md) for more details on local models.
     In particular, you need to configure token costs for local models.
 
+Here are more examples of how to configure specific models:
+
+=== "Gemini 3 (Openrouter)"
+
+    ```yaml
+    model:
+        model_name: "google/gemini-3-pro-preview"
+        model_class: openrouter
+        model_kwargs:
+            temperature: 0.0
+    ```
+
+=== "GPT 5.1 medium (Portkey)"
+
+    ```yaml
+    model:
+        model_name: "@openai/gpt-5.1"
+        model_class: portkey
+        model_kwargs:
+            reasoning_effort: "medium"
+            verbosity: "medium"
+    ```
+
+=== "Claude Haiku 4.5"
+
+    ```yaml
+    model:
+        model_name: "anthropic/claude-haiku-4-5-20251001"
+        model_kwargs:
+            temperature: 0.0
+    ```
+
+=== "GPT 5 mini (Portkey)"
+
+    ```yaml
+    model:
+        model_name: "@openai/gpt-5-mini"
+        model_class: portkey
+    ```
+
+=== "Deepseek"
+
+    ```yaml
+    model:
+        model_name: "deepseek/deepseek-reasoner"
+        model_kwargs:
+            temperature: 0.0
+    ```
+
+=== "Minimax (Openrouter)"
+
+    ```yaml
+    model:
+        model_name: "minimax/minimax-m2"
+        model_class: openrouter
+        model_kwargs:
+            temperature: 0.0
+    ```
+
 ## Model classes
 
 We support the various models through different backends.
@@ -198,16 +270,31 @@ For example:
     mini -m "moonshotai/kimi-k2-0905" --model-class openrouter
     ```
 
+    **Alternatively:** In the agent config file:
+
+    ```yaml
+    model:
+        model_name: "moonshotai/kimi-k2-0905"
+        model_class: openrouter
+    ```
+
 === "Portkey model"
 
     ```bash
     mini -m "claude-sonnet-4-5-20250929" --model-class portkey
     ```
 
+    **Alternatively:** In the agent config file:
+    ```yaml
+    model:
+        model_name: "claude-sonnet-4-5-20250929"
+        model_class: portkey
+    ```
 
-* **`litellm`** ([`LitellmModel`](../reference/models/litellm.md)) - **Default and recommended**. Supports most models through [litellm](https://github.com/BerriAI/litellm). Works with OpenAI, Anthropic, Google, and many other providers.
 
-* **`anthropic`** ([`AnthropicModel`](../reference/models/anthropic.md)) - Wrapper around `LitellmModel` for Anthropic models that adds cache breakpoint handling. Will be used by default if no `model_class` is specified and the model name contains "anthropic", "claude", etc.
+* **`litellm`** ([`LitellmModel`](../reference/models/litellm.md)) - **Default and recommended**. Supports most models through [litellm](https://github.com/BerriAI/litellm). Works with OpenAI, Anthropic, Google, and many other providers. Anthropic models automatically get cache control settings when the model name contains "anthropic", "claude", "sonnet", or "opus".
+
+* **`litellm_response`** ([`LitellmResponseModel`](../reference/models/litellm_response_toolcall.md)) - Specialized version of `LitellmModel` that uses OpenAI's Responses API with native tool calling. Useful for models like GPT-5 and required for models like GPT-5-codex. Maintains conversation state across turns.
 
 * **`openrouter`** ([`OpenRouterModel`](../reference/models/openrouter.md)) - Direct integration with [OpenRouter](https://openrouter.ai/) API for accessing various models through a single endpoint.
 
