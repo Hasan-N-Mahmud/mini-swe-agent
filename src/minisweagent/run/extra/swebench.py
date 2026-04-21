@@ -46,7 +46,7 @@ DATASET_MAPPING = {
     "multilingual": "swe-bench/SWE-Bench_Multilingual",
     "smith": "SWE-bench/SWE-smith",
     "_test": "klieret/swe-bench-dummy-test-dataset",
-    "pro": "scale-ai/SWEBench-Pro",
+    "pro": "ScaleAI/SWE-bench_Pro",
 }
 
 
