@@ -29,6 +29,8 @@ from minisweagent.utils.log import add_file_handler, logger
 
 _HELP_TEXT = """Run mini-SWE-agent on SWEBench instances.
 
+
+
 [not dim]
 More information about the usage: [bold green]https://mini-swe-agent.com/latest/usage/swebench/[/bold green]
 [/not dim]
@@ -44,10 +46,15 @@ DATASET_MAPPING = {
     "multilingual": "swe-bench/SWE-Bench_Multilingual",
     "smith": "SWE-bench/SWE-smith",
     "_test": "klieret/swe-bench-dummy-test-dataset",
+    "pro": "ScaleAI/SWE-bench_Pro",
 }
 
 
 _OUTPUT_FILE_LOCK = threading.Lock()
+
+_LANGUAGE_ALIASES = {
+    "py": "python",
+}
 
 
 class ProgressTrackingAgent(DefaultAgent):
@@ -70,10 +77,15 @@ def get_swebench_docker_image_name(instance: dict) -> str:
     """Get the image name for a SWEBench instance."""
     image_name = instance.get("image_name", None)
     if image_name is None:
-        # Docker doesn't allow double underscore, so we replace them with a magic token
-        iid = instance["instance_id"]
-        id_docker_compatible = iid.replace("__", "_1776_")
-        image_name = f"docker.io/swebench/sweb.eval.x86_64.{id_docker_compatible}:latest".lower()
+        # SWE-bench Pro instances provide a dockerhub_tag field pointing to jefzda/sweap-images
+        dockerhub_tag = instance.get("dockerhub_tag", None)
+        if dockerhub_tag is not None:
+            image_name = f"docker.io/jefzda/sweap-images:{dockerhub_tag}"
+        else:
+            # Docker doesn't allow double underscore, so we replace them with a magic token
+            iid = instance["instance_id"]
+            id_docker_compatible = iid.replace("__", "_1776_")
+            image_name = f"docker.io/swebench/sweb.eval.x86_64.{id_docker_compatible}:latest".lower()
     return image_name
 
 
@@ -108,6 +120,17 @@ def update_preds_file(output_path: Path, instance_id: str, model_name: str, resu
         output_path.write_text(json.dumps(output_data, indent=2))
 
 
+
+def check_language_filter(instance: dict, language_filter: str) -> None:
+    """Raise an error if the instance language does not match the requested filter."""
+    normalized = _LANGUAGE_ALIASES.get(language_filter.lower(), language_filter.lower())
+    instance_language = instance.get("language", "python").lower()
+    if instance_language != normalized:
+        raise ValueError(
+            f"Language filter '{language_filter}' requires '{normalized}' instances. "
+            f"The Instance '{instance['instance_id']}' has language '{instance_language}'"
+        )
+
 def remove_from_preds_file(output_path: Path, instance_id: str):
     """Remove an instance from the predictions file."""
     if not output_path.exists():
@@ -125,6 +148,7 @@ def process_instance(
     config: dict,
     progress_manager: RunBatchProgressManager,
     container_id: str | None = None,
+    language_filter: str | None = None,
 ) -> None:
     """Process a single SWEBench instance."""
     instance_id = instance["instance_id"]
@@ -132,6 +156,10 @@ def process_instance(
     # avoid inconsistent state if something here fails and there's leftover previous files
     remove_from_preds_file(output_dir / "preds.json", instance_id)
     (instance_dir / f"{instance_id}.traj.json").unlink(missing_ok=True)
+
+    if language_filter is not None:
+        check_language_filter(instance, language_filter)
+
     model = get_model(config=config.get("model", {}))
     task = instance["problem_statement"]
 
@@ -192,8 +220,8 @@ def filter_instances(
 # fmt: off
 @app.command(help=_HELP_TEXT)
 def main(
-    subset: str = typer.Option("lite", "--subset", help="SWEBench subset to use or path to a dataset", rich_help_panel="Data selection"),
-    split: str = typer.Option("dev", "--split", help="Dataset split", rich_help_panel="Data selection"),
+    subset: str = typer.Option("lite", "--subset", help="SWEBench subset to use or path to a dataset. Use 'pro' for SWE-bench Pro.", rich_help_panel="Data selection"),
+    split: str | None = typer.Option(None, "--split", help="Dataset split (defaults to 'test' for pro, 'dev' for others)", rich_help_panel="Data selection"),
     slice_spec: str = typer.Option("", "--slice", help="Slice specification (e.g., '0:5' for first 5 instances)", rich_help_panel="Data selection"),
     filter_spec: str = typer.Option("", "--filter", help="Filter instance IDs by regex", rich_help_panel="Data selection"),
     shuffle: bool = typer.Option(False, "--shuffle", help="Shuffle instances", rich_help_panel="Data selection"),
@@ -202,11 +230,18 @@ def main(
     model: str | None = typer.Option(None, "-m", "--model", help="Model to use", rich_help_panel="Basic"),
     model_class: str | None = typer.Option(None, "--model-class", help="Model class to use (e.g., 'anthropic' or 'minisweagent.models.anthropic.AnthropicModel')", rich_help_panel="Advanced"),
     redo_existing: bool = typer.Option(False, "--redo-existing", help="Redo existing instances", rich_help_panel="Data selection"),
-    config_spec: Path = typer.Option( builtin_config_dir / "extra" / "swebench.yaml", "-c", "--config", help="Path to a config file", rich_help_panel="Basic"),
+    config_spec: Path | None = typer.Option(None, "-c", "--config", help="Path to a config file (defaults to swepro.yaml for pro, swebench.yaml otherwise)", rich_help_panel="Basic"),
     environment_class: str | None = typer.Option( None, "--environment-class", help="Environment type to use. Recommended are docker or singularity", rich_help_panel="Advanced"),
     container_id: str | None = typer.Option( None, "--container-id", help="Container ID to use", rich_help_panel="Advanced"),
+    language: str | None = typer.Option(None, "--language", help="Language filter (e.g., 'py' to run only Python instances)", rich_help_panel="Data selection"),
 ) -> None:
     # fmt: on
+    is_pro = subset == "pro"
+    if split is None:
+        split = "test" if is_pro else "dev"
+    if config_spec is None:
+        config_spec = builtin_config_dir / "extra" / ("swepro.yaml" if is_pro else "swebench.yaml")
+
     output_path = Path(output)
     output_path.mkdir(parents=True, exist_ok=True)
     logger.info(f"Results will be saved to {output_path}")
@@ -249,7 +284,7 @@ def main(
     with Live(progress_manager.render_group, refresh_per_second=4):
         with concurrent.futures.ThreadPoolExecutor(max_workers=workers) as executor:
             futures = {
-                executor.submit(process_instance, instance, output_path, config, progress_manager, container_id): instance[
+                executor.submit(process_instance, instance, output_path, config, progress_manager, container_id, language): instance[
                     "instance_id"
                 ]
                 for instance in instances
