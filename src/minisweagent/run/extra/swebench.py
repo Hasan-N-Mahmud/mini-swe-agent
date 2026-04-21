@@ -46,6 +46,7 @@ DATASET_MAPPING = {
     "multilingual": "swe-bench/SWE-Bench_Multilingual",
     "smith": "SWE-bench/SWE-smith",
     "_test": "klieret/swe-bench-dummy-test-dataset",
+    "pro": "scale-ai/SWEBench-Pro",
 }
 
 
@@ -219,8 +220,8 @@ def filter_instances(
 # fmt: off
 @app.command(help=_HELP_TEXT)
 def main(
-    subset: str = typer.Option("lite", "--subset", help="SWEBench subset to use or path to a dataset", rich_help_panel="Data selection"),
-    split: str = typer.Option("dev", "--split", help="Dataset split", rich_help_panel="Data selection"),
+    subset: str = typer.Option("lite", "--subset", help="SWEBench subset to use or path to a dataset. Use 'pro' for SWE-bench Pro.", rich_help_panel="Data selection"),
+    split: str | None = typer.Option(None, "--split", help="Dataset split (defaults to 'test' for pro, 'dev' for others)", rich_help_panel="Data selection"),
     slice_spec: str = typer.Option("", "--slice", help="Slice specification (e.g., '0:5' for first 5 instances)", rich_help_panel="Data selection"),
     filter_spec: str = typer.Option("", "--filter", help="Filter instance IDs by regex", rich_help_panel="Data selection"),
     shuffle: bool = typer.Option(False, "--shuffle", help="Shuffle instances", rich_help_panel="Data selection"),
@@ -229,12 +230,18 @@ def main(
     model: str | None = typer.Option(None, "-m", "--model", help="Model to use", rich_help_panel="Basic"),
     model_class: str | None = typer.Option(None, "--model-class", help="Model class to use (e.g., 'anthropic' or 'minisweagent.models.anthropic.AnthropicModel')", rich_help_panel="Advanced"),
     redo_existing: bool = typer.Option(False, "--redo-existing", help="Redo existing instances", rich_help_panel="Data selection"),
-    config_spec: Path = typer.Option( builtin_config_dir / "extra" / "swebench.yaml", "-c", "--config", help="Path to a config file", rich_help_panel="Basic"),
+    config_spec: Path | None = typer.Option(None, "-c", "--config", help="Path to a config file (defaults to swepro.yaml for pro, swebench.yaml otherwise)", rich_help_panel="Basic"),
     environment_class: str | None = typer.Option( None, "--environment-class", help="Environment type to use. Recommended are docker or singularity", rich_help_panel="Advanced"),
     container_id: str | None = typer.Option( None, "--container-id", help="Container ID to use", rich_help_panel="Advanced"),
     language: str | None = typer.Option(None, "--language", help="Language filter (e.g., 'py' to run only Python instances)", rich_help_panel="Data selection"),
 ) -> None:
     # fmt: on
+    is_pro = subset == "pro"
+    if split is None:
+        split = "test" if is_pro else "dev"
+    if config_spec is None:
+        config_spec = builtin_config_dir / "extra" / ("swepro.yaml" if is_pro else "swebench.yaml")
+
     output_path = Path(output)
     output_path.mkdir(parents=True, exist_ok=True)
     logger.info(f"Results will be saved to {output_path}")

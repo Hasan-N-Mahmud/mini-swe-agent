@@ -51,7 +51,6 @@ class DockerEnvironment:
         self.logger = logger or logging.getLogger("minisweagent.environment")
         self.container_id: str | None = None
         self.config = config_class(**kwargs)
-        print("Docker Environment Config:", self.config)
         if self.config.container_id is not None:
             self._attach_to_container(self.config.container_id)
         else:
