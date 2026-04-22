@@ -56,8 +56,21 @@ class DockerEnvironment:
         else:
             self._start_container()
 
+        # Determine working directory by executing pwd in the container
+        self.working_dir = self._get_working_dir()
+
     def get_template_vars(self) -> dict[str, Any]:
-        return asdict(self.config)
+        return asdict(self.config) | {"working_dir": self.working_dir}
+    
+    def _get_working_dir(self) -> str:
+        """Determine the current working directory in the container."""
+        result = self.execute("pwd")
+        if result["returncode"] != 0:
+            self.logger.warning(
+                f"Failed to determine working directory, using cwd: {self.config.cwd}"
+            )
+            return self.config.cwd
+        return result["output"].strip()
 
     def _start_container(self):
         """Start the Docker container and return the container ID."""
