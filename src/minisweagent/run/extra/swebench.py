@@ -24,6 +24,7 @@ from minisweagent.config import builtin_config_dir, get_config_path
 from minisweagent.environments import get_environment
 from minisweagent.models import get_model
 from minisweagent.run.extra.utils.batch_progress import RunBatchProgressManager
+from minisweagent.run.extra.utils.create_problem_statement_for_swepro import create_problem_statement
 from minisweagent.run.utils.save import save_traj
 from minisweagent.utils.log import add_file_handler, logger
 
@@ -161,7 +162,10 @@ def process_instance(
         check_language_filter(instance, language_filter)
 
     model = get_model(config=config.get("model", {}))
-    task = instance["problem_statement"]
+    if instance.get("requirements") or instance.get("interface"):
+        task = create_problem_statement(instance)
+    else:
+        task = instance["problem_statement"]
 
     progress_manager.on_instance_start(instance_id)
     progress_manager.update_instance_status(instance_id, "Pulling/starting docker")
