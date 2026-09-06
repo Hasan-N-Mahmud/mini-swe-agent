@@ -20,6 +20,7 @@ from rich.live import Live
 
 from minisweagent import Environment
 from minisweagent.agents.default import DefaultAgent
+from minisweagent.agents.resumed import ResumedAgent, load_resume_point
 from minisweagent.config import builtin_config_dir, get_config_path
 from minisweagent.environments import get_environment
 from minisweagent.models import get_model
@@ -72,6 +73,17 @@ class ProgressTrackingAgent(DefaultAgent):
             self.instance_id, f"Step {self.model.n_calls + 1:3d} (${self.model.cost:.2f})"
         )
         return super().step()
+
+
+class ResumedProgressAgent(ResumedAgent, ProgressTrackingAgent):
+    """Resumes from a recorded trajectory while still reporting batch progress."""
+
+
+def resolve_resume_trajectory(resume_from: Path, instance_id: str) -> Path:
+    """Accept either a trajectory file or a directory laid out like the trace dirs."""
+    if resume_from.is_dir():
+        return resume_from / instance_id / f"{instance_id}.traj.json"
+    return resume_from
 
 
 def get_swebench_docker_image_name(instance: dict) -> str:
@@ -150,6 +162,8 @@ def process_instance(
     progress_manager: RunBatchProgressManager,
     container_id: str | None = None,
     language_filter: str | None = None,
+    resume_from: Path | None = None,
+    resume_at: int | None = None,
 ) -> None:
     """Process a single SWEBench instance."""
     instance_id = instance["instance_id"]
@@ -172,16 +186,28 @@ def process_instance(
 
     agent = None
     extra_info = None
+    resume_info = None
 
     try:
         env = get_sb_environment(config, instance, container_id=container_id)
-        agent = ProgressTrackingAgent(
-            model,
-            env,
+        agent_kwargs = dict(
             progress_manager=progress_manager,
             instance_id=instance_id,
             **config.get("agent", {}),
         )
+        if resume_from is not None:
+            trajectory = resolve_resume_trajectory(resume_from, instance_id)
+            prefix, injected, resume_info = load_resume_point(trajectory, resume_at)
+            logger.info(
+                f"Resuming {instance_id} from {trajectory} at message {resume_info['resume_at']} "
+                f"({resume_info['prefix_steps']} seeded steps, "
+                f"injecting write of {resume_info['resume_action_target']})"
+            )
+            agent = ResumedProgressAgent(
+                model, env, prefix_messages=prefix, injected_action=injected, **agent_kwargs
+            )
+        else:
+            agent = ProgressTrackingAgent(model, env, **agent_kwargs)
         exit_status, result = agent.run(task)
     except Exception as e:
         logger.error(f"Error processing instance {instance_id}: {e}", exc_info=True)
@@ -196,6 +222,8 @@ def process_instance(
             extra_info=extra_info,
             instance_id=instance_id,
             print_fct=logger.info,
+            # only present on resumed runs, so normal trajectories keep their schema
+            **({"resume_info": resume_info} if resume_info else {}),
         )
         update_preds_file(output_dir / "preds.json", instance_id, model.config.model_name, result)
         progress_manager.on_instance_end(instance_id, exit_status)
@@ -238,6 +266,8 @@ def main(
     environment_class: str | None = typer.Option( None, "--environment-class", help="Environment type to use. Recommended are docker or singularity", rich_help_panel="Advanced"),
     container_id: str | None = typer.Option( None, "--container-id", help="Container ID to use", rich_help_panel="Advanced"),
     language: str | None = typer.Option(None, "--language", help="Language filter (e.g., 'py' to run only Python instances)", rich_help_panel="Data selection"),
+    resume_from: Path | None = typer.Option(None, "--resume-from", help="Resume from recorded trajectories: a .traj.json file, or a directory containing <instance_id>/<instance_id>.traj.json", rich_help_panel="Advanced"),
+    resume_at: int | None = typer.Option(None, "--resume-at", help="Message index to resume at (default: the first step that writes a .py file)", rich_help_panel="Advanced"),
 ) -> None:
     # fmt: on
     is_pro = subset == "pro"
@@ -288,9 +318,10 @@ def main(
     with Live(progress_manager.render_group, refresh_per_second=4):
         with concurrent.futures.ThreadPoolExecutor(max_workers=workers) as executor:
             futures = {
-                executor.submit(process_instance, instance, output_path, config, progress_manager, container_id, language): instance[
-                    "instance_id"
-                ]
+                executor.submit(
+                    process_instance, instance, output_path, config, progress_manager,
+                    container_id, language, resume_from, resume_at,
+                ): instance["instance_id"]
                 for instance in instances
             }
             try:
